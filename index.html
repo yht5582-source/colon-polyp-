@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>大腸息肉追蹤計算機 (USMSTF 2020)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link id="manifest-link" rel="manifest" href="">
+    <meta name="theme-color" content="#10b981">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            background-color: #f8fafc;
+        }
+        /* 自訂隱藏 Radio 預設樣式，以 Label 呈現按鈕感 */
+        .radio-btn-input:checked + .radio-btn-label {
+            background-color: var(--active-bg);
+            border-color: var(--active-border);
+            color: var(--active-text);
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="text-slate-800 font-sans pb-44">
+    <div id="app" class="max-w-4xl mx-auto">
+        <header class="bg-emerald-600 text-white p-4 shadow-lg sticky top-0 z-50 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">息肉追蹤計算機</h1>
+                <p class="text-xs text-emerald-100">基於 USMSTF 2020 Guidelines</p>
+            </div>
+            <button v-if="deferredPrompt" @click="installPWA" class="bg-white text-emerald-700 px-3 py-1.5 rounded-full text-sm font-bold shadow-md hover:bg-emerald-50 transition active:scale-95">
+                下載 APP
+            </button>
+        </header>
+
+        <main class="p-4 space-y-6">
+            
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3">
+                    <h2 class="text-lg font-bold text-slate-700 flex items-center">
+                        <span class="bg-slate-700 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">1</span> 檢查品質與特殊切除
+                    </h2>
+                </div>
+                <div class="p-5 space-y-5">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-2">大腸鏡是否完整檢查至盲腸 (Cecum Reached)?</label>
+                        <div class="flex gap-3">
+                            <label class="flex-1 cursor-pointer" style="--active-bg: #f1f5f9; --active-border: #64748b; --active-text: #334155;">
+                                <input type="radio" v-model="cecumReached" :value="true" class="hidden radio-btn-input">
+                                <div class="radio-btn-label p-3 border rounded-xl text-center text-slate-500 bg-white transition shadow-sm">是 (Yes)</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer" style="--active-bg: #fee2e2; --active-border: #ef4444; --active-text: #b91c1c;">
+                                <input type="radio" v-model="cecumReached" :value="false" class="hidden radio-btn-input">
+                                <div class="radio-btn-label p-3 border rounded-xl text-center text-slate-500 bg-white transition shadow-sm">否 (No)</div>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-2">清腸準備品質 (Bowel Prep Quality)</label>
+                        <div class="flex gap-3">
+                            <label class="flex-1 cursor-pointer" style="--active-bg: #f1f5f9; --active-border: #64748b; --active-text: #334155;">
+                                <input type="radio" v-model="prepQuality" value="adequate" class="hidden radio-btn-input">
+                                <div class="radio-btn-label p-3 border rounded-xl text-center text-slate-500 bg-white transition shadow-sm">良好 / 可接受</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer" style="--active-bg: #fee2e2; --active-border: #ef4444; --active-text: #b91c1c;">
+                                <input type="radio" v-model="prepQuality" value="inadequate" class="hidden radio-btn-input">
+                                <div class="radio-btn-label p-3 border rounded-xl text-center text-slate-500 bg-white transition shadow-sm">不佳 (Inadequate)</div>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-2">是否有針對 ≥20mm 的息肉進行「分片切除 (Piecemeal resection)」?</label>
+                        <div class="flex gap-3">
+                            <label class="flex-1 cursor-pointer" style="--active-bg: #f1f5f9; --active-border: #64748b; --active-text: #334155;">
+                                <input type="radio" v-model="piecemeal" :value="false" class="hidden radio-btn-input">
+                                <div class="radio-btn-label p-3 border rounded-xl text-center text-slate-500 bg-white transition shadow-sm">無 (No)</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer" style="--active-bg: #fef08a; --active-border: #eab308; --active-text: #854d0e;">
+                                <input type="radio" v-model="piecemeal" :value="true" class="hidden radio-btn-input">
+                                <div class="radio-btn-label p-3 border rounded-xl text-center text-slate-500 bg-white transition shadow-sm">有 (Yes)</div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-white rounded-2xl shadow-sm border border-blue-200 overflow-hidden">
+                <div class="bg-blue-50 border-b border-blue-200 px-5 py-3">
+                    <h2 class="text-lg font-bold text-blue-800 flex items-center">
+                        <span class="bg-blue-700 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">2</span> 腺瘤 (Adenomas) 病理與數量
+                    </h2>
+                </div>
+                <div class="p-5 space-y-6">
+                    <div>
+                        <label class="block text-sm font-bold text-blue-900 mb-1">一般管狀腺瘤 (Tubular Adenoma, < 10mm)</label>
+                        <p class="text-xs text-slate-500 mb-2">無高風險特徵之小型管狀腺瘤總數</p>
+                        <div class="grid grid-cols-5 gap-2">
+                            <label v-for="opt in ['0', '1-2', '3-4', '5-10', '>10']" :key="'ta'+opt" class="cursor-pointer" style="--active-bg: #dbeafe; --active-border: #3b82f6; --active-text: #1d4ed8;">
+                                <input type="radio" v-model="taCount" :value="opt" class="hidden radio-btn-input">
+                                <div class="radio-btn-label py-2 border rounded-lg text-center text-sm text-slate-500 bg-white transition">{{ opt }}</div>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-blue-900 mb-1">進階腺瘤 (Advanced Adenoma)</label>
+                        <p class="text-xs text-slate-500 mb-2">含以下任一：大小 ≥10mm、絨毛狀/管狀絨毛狀 (Villous/Tubulovillous)、高度異生 (High-grade dysplasia)</p>
+                        <div class="flex gap-2">
+                            <label class="flex-1 cursor-pointer" style="--active-bg: #f1f5f9; --active-border: #cbd5e1; --active-text: #475569;">
+                                <input type="radio" v-model="aaCount" value="0" class="hidden radio-btn-input">
+                                <div class="radio-btn-label py-2 border rounded-lg text-center text-slate-500 bg-white transition shadow-sm">0 顆</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer" style="--active-bg: #dbeafe; --active-border: #3b82f6; --active-text: #1d4ed8;">
+                                <input type="radio" v-model="aaCount" value="1+" class="hidden radio-btn-input">
+                                <div class="radio-btn-label py-2 border rounded-lg text-center text-slate-500 bg-white transition shadow-sm">1 顆或以上</div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-white rounded-2xl shadow-sm border border-purple-200 overflow-hidden">
+                <div class="bg-purple-50 border-b border-purple-200 px-5 py-3">
+                    <h2 class="text-lg font-bold text-purple-800 flex items-center">
+                        <span class="bg-purple-700 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">3</span> 鋸齒狀病灶 (Serrated Lesions)
+                    </h2>
+                </div>
+                <div class="p-5 space-y-6">
+                    <div>
+                        <label class="block text-sm font-bold text-purple-900 mb-1">無蒂鋸齒狀病灶 (Sessile Serrated Lesion, < 10mm)</label>
+                        <p class="text-xs text-slate-500 mb-2">且不伴隨異生 (Without dysplasia)</p>
+                        <div class="grid grid-cols-5 gap-2">
+                            <label v-for="opt in ['0', '1-2', '3-4', '5-10', '>10']" :key="'ssl'+opt" class="cursor-pointer" style="--active-bg: #f3e8ff; --active-border: #a855f7; --active-text: #7e22ce;">
+                                <input type="radio" v-model="sslCount" :value="opt" class="hidden radio-btn-input">
+                                <div class="radio-btn-label py-2 border rounded-lg text-center text-sm text-slate-500 bg-white transition">{{ opt }}</div>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-purple-900 mb-1">進階鋸齒狀病灶 (Advanced Serrated Lesion)</label>
+                        <p class="text-xs text-slate-500 mb-2">含以下任一：大小 ≥10mm、伴隨異生 (SSL with dysplasia)、傳統鋸齒狀腺瘤 (TSA)</p>
+                        <div class="flex gap-2">
+                            <label class="flex-1 cursor-pointer" style="--active-bg: #f1f5f9; --active-border: #cbd5e1; --active-text: #475569;">
+                                <input type="radio" v-model="aslCount" value="0" class="hidden radio-btn-input">
+                                <div class="radio-btn-label py-2 border rounded-lg text-center text-slate-500 bg-white transition shadow-sm">0 顆</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer" style="--active-bg: #f3e8ff; --active-border: #a855f7; --active-text: #7e22ce;">
+                                <input type="radio" v-model="aslCount" value="1+" class="hidden radio-btn-input">
+                                <div class="radio-btn-label py-2 border rounded-lg text-center text-slate-500 bg-white transition shadow-sm">1 顆或以上</div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <p class="text-xs text-slate-400 text-justify">
+                註：直腸乙狀結腸處的微小「增生性息肉 (Hyperplastic Polyps, < 10mm)」依據指引視同正常檢查，適用 10 年追蹤，無需計入上方數量。
+            </p>
+
+        </main>
+
+        <div class="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.1)] border-t border-emerald-100 z-50">
+            <div class="max-w-4xl mx-auto p-4 md:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="flex-1 w-full">
+                    <div class="text-sm text-emerald-600 font-bold mb-1">建議下次大腸鏡追蹤間隔</div>
+                    <div class="text-3xl font-black text-slate-800 tracking-tight" :class="{'text-red-600': isUrgent}">
+                        {{ recommendation.interval }}
+                    </div>
+                    <div class="text-sm font-medium text-slate-500 mt-1">
+                        依據：{{ recommendation.reason }}
+                    </div>
+                </div>
+                <button @click="resetForm" class="w-full md:w-auto px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition active:scale-95 shrink-0">
+                    重設表單
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        const app = createApp({
+            setup() {
+                // State variables
+                const cecumReached = ref(true);
+                const prepQuality = ref('adequate');
+                const piecemeal = ref(false);
+                
+                const taCount = ref('0');
+                const aaCount = ref('0');
+                const sslCount = ref('0');
+                const aslCount = ref('0');
+
+                // PWA Prompt
+                const deferredPrompt = ref(null);
+
+                // 計算屬性：是否為緊急/極短期追蹤
+                const isUrgent = computed(() => {
+                    return recommendation.value.interval.includes('6 個月') || 
+                           recommendation.value.interval.includes('< 1 年');
+                });
+
+                // 核心邏輯演算法 (基於 USMSTF 2020)
+                const recommendation = computed(() => {
+                    // 1. 檢查品質與完整度 (最優先考量)
+                    if (!cecumReached.value || prepQuality.value === 'inadequate') {
+                        return {
+                            interval: '< 1 年',
+                            reason: '未抵達盲腸或清腸品質不佳，無法排除重大病灶，建議短期內重新檢查。'
+                        };
+                    }
+
+                    // 2. 特殊切除狀況
+                    if (piecemeal.value) {
+                        return {
+                            interval: '6 個月',
+                            reason: '大型息肉(≥20mm)採分片切除，需在 6 個月內追蹤原切除部位有無殘留復發。'
+                        };
+                    }
+
+                    // 3. 數量過多 (最高風險)
+                    if (taCount.value === '>10' || sslCount.value === '>10') {
+                        return {
+                            interval: '1 年',
+                            reason: '腺瘤或鋸齒狀病灶數量 > 10 顆。需考慮是否符合息肉症候群，並建議 1 年內追蹤。'
+                        };
+                    }
+
+                    // 4. 進階病理特徵 或 數量 5-10 顆
+                    if (aaCount.value === '1+' || aslCount.value === '1+') {
+                        let lesions = [];
+                        if (aaCount.value === '1+') lesions.push('進階腺瘤');
+                        if (aslCount.value === '1+') lesions.push('進階鋸齒狀病灶');
+                        return {
+                            interval: '3 年',
+                            reason: `存在高風險特徵 (${lesions.join(' / ')})。`
+                        };
+                    }
+
+                    if (taCount.value === '5-10' || sslCount.value === '5-10') {
+                        let type = taCount.value === '5-10' ? '腺瘤' : '鋸齒狀病灶';
+                        return {
+                            interval: '3 年',
+                            reason: `息肉數量較多 (${type} 5-10 顆)。`
+                        };
+                    }
+
+                    // 5. 中等數量 (3-4顆)
+                    if (taCount.value === '3-4' || sslCount.value === '3-4') {
+                        let type = taCount.value === '3-4' ? '腺瘤' : '鋸齒狀病灶';
+                        return {
+                            interval: '3 - 5 年',
+                            reason: `發現 ${type} 3-4 顆。`
+                        };
+                    }
+
+                    // 6. 少量病灶 (1-2顆)
+                    if (sslCount.value === '1-2') {
+                        return {
+                            interval: '5 - 10 年',
+                            reason: '發現 1-2 顆小型無蒂鋸齒狀病灶 (SSL <10mm)。'
+                        };
+                    }
+
+                    if (taCount.value === '1-2') {
+                        return {
+                            interval: '7 - 10 年',
+                            reason: '發現 1-2 顆低風險小型管狀腺瘤 (TA <10mm)。'
+                        };
+                    }
+
+                    // 7. 正常或無上述特徵
+                    return {
+                        interval: '10 年',
+                        reason: '大腸鏡檢查正常，或僅有直腸/乙狀結腸處微小增生性息肉，屬正常人群風險。'
+                    };
+                });
+
+                const resetForm = () => {
+                    cecumReached.value = true;
+                    prepQuality.value = 'adequate';
+                    piecemeal.value = false;
+                    taCount.value = '0';
+                    aaCount.value = '0';
+                    sslCount.value = '0';
+                    aslCount.value = '0';
+                };
+
+                const installPWA = async () => {
+                    if (!deferredPrompt.value) return;
+                    deferredPrompt.value.prompt();
+                    const { outcome } = await deferredPrompt.value.userChoice;
+                    deferredPrompt.value = null; 
+                };
+
+                onMounted(() => {
+                    window.addEventListener('beforeinstallprompt', (e) => {
+                        e.preventDefault();
+                        deferredPrompt.value = e;
+                    });
+                });
+
+                return {
+                    cecumReached, prepQuality, piecemeal,
+                    taCount, aaCount, sslCount, aslCount,
+                    recommendation, isUrgent, resetForm,
+                    deferredPrompt, installPWA
+                };
+            }
+        });
+
+        app.mount('#app');
+
+        // 產生 APP Icon (Base64 SVG)
+        const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192">
+            <rect width="192" height="192" rx="40" fill="#059669"/>
+            <text x="96" y="90" font-family="sans-serif" font-weight="bold" font-size="44" text-anchor="middle" fill="white">Polyp</text>
+            <text x="96" y="140" font-family="sans-serif" font-weight="bold" font-size="38" text-anchor="middle" fill="#d1fae5">Guide</text>
+        </svg>`;
+        const iconDataURI = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(iconSVG)));
+
+        // 動態注入 Manifest Blob
+        const manifest = {
+            name: "大腸息肉追蹤建議計算機",
+            short_name: "Polyp Guide",
+            start_url: window.location.href,
+            display: "standalone",
+            background_color: "#f8fafc",
+            theme_color: "#059669",
+            icons: [{ src: iconDataURI, sizes: "192x192", type: "image/svg+xml" }]
+        };
+        
+        try {
+            const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+            document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
+        } catch (e) {
+            console.error('無法動態產生 Manifest:', e);
+        }
+    </script>
+</body>
+</html>
